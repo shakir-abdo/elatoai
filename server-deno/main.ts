@@ -4,7 +4,7 @@ import type {
     WebSocket as WSWebSocket,
     WebSocketServer as _WebSocketServer,
 } from "npm:@types/ws";
-import { authenticateUser, elevenLabsApiKey } from "./utils.ts";
+import { authenticateUser } from "./utils.ts";
 import {
     createFirstMessage,
     createSystemPrompt,
@@ -59,7 +59,7 @@ wss.on("connection", async (ws: WSWebSocket, payload: IPayload) => {
     ws.send(
         JSON.stringify({
             type: "auth",
-            volume_control: user.device?.volume ?? 20,
+            volume_control: user.device?.volume ?? 100,
             is_ota: user.device?.is_ota ?? false,
             is_reset: user.device?.is_reset ?? false,
             pitch_factor: user.personality?.pitch_factor ?? 1,
@@ -92,20 +92,7 @@ wss.on("connection", async (ws: WSWebSocket, payload: IPayload) => {
             await connectToGrok(providerArgs);
             break;
         case "elevenlabs":
-            const agentId = user.personality?.oai_voice ?? "";
-            
-            if (!elevenLabsApiKey) {
-                throw new Error("ELEVENLABS_API_KEY environment variable is required");
-            }
-            
-            await connectToElevenLabs(
-                ws,
-                payload,
-                connectionPcmFile,
-                agentId,
-                elevenLabsApiKey,
-                closeHandler,
-            );
+            await connectToElevenLabs(providerArgs);
             break;
         case "hume":
             await connectToHume(providerArgs);
