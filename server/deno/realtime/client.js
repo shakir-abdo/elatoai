@@ -10,7 +10,7 @@ import { RealtimeUtils } from './utils.js';
 
 /**
  * @typedef {Object} AudioTranscriptionType
- * @property {"whisper-1"} model
+ * @property {string} model e.g. "gpt-realtime-whisper"
  */
 
 /**
@@ -203,13 +203,12 @@ export class RealtimeClient extends RealtimeEventHandler {
             turn_detection: null,
             tools: [],
             tool_choice: 'auto',
-            temperature: 0.8,
             max_response_output_tokens: 4096,
         };
         this.sessionConfig = {};
         this.transcriptionModels = [
             {
-                model: 'whisper-1',
+                model: 'gpt-realtime-whisper',
             },
         ];
         this.defaultServerVadConfig = {
@@ -328,10 +327,13 @@ export class RealtimeClient extends RealtimeEventHandler {
         );
 
         // Handlers to update application state
-        this.realtime.on('server.conversation.item.created', (event) => {
+        this.realtime.on('server.conversation.item.added', (event) => {
             const { item } = handlerWithDispatch(event);
             this.dispatch('conversation.item.appended', { item });
-            if (item.status === 'completed') {
+        });
+        this.realtime.on('server.conversation.item.done', (event) => {
+            const { item } = handlerWithDispatch(event);
+            if (item && item.status === 'completed') {
                 this.dispatch('conversation.item.completed', { item });
             }
         });
@@ -342,11 +344,11 @@ export class RealtimeClient extends RealtimeEventHandler {
             handlerWithDispatch,
         );
         this.realtime.on(
-            'server.response.audio_transcript.delta',
+            'server.response.output_audio_transcript.delta',
             handlerWithDispatch,
         );
-        this.realtime.on('server.response.audio.delta', handlerWithDispatch);
-        this.realtime.on('server.response.text.delta', handlerWithDispatch);
+        this.realtime.on('server.response.output_audio.delta', handlerWithDispatch);
+        this.realtime.on('server.response.output_text.delta', handlerWithDispatch);
         this.realtime.on(
             'server.response.function_call_arguments.delta',
             handlerWithDispatch,
@@ -391,7 +393,7 @@ export class RealtimeClient extends RealtimeEventHandler {
      * @returns {Promise<true>}
      */
     async connect({
-        model = 'gpt-realtime-1.5',
+        model = 'gpt-realtime-2.1',
         turn_detection = null,
         voice,
         instructions,
@@ -546,12 +548,54 @@ export class RealtimeClient extends RealtimeEventHandler {
                 };
             }),
         );
-        const session = { ...this.sessionConfig };
-        session.tools = useTools;
+        const session = this._toGASessionPayload({
+            ...this.sessionConfig,
+            tools: useTools,
+        });
         if (this.realtime.isConnected()) {
             this.realtime.send('session.update', { session });
         }
         return true;
+    }
+
+    /**
+     * Translates the flat (legacy) session config into the GA Realtime API
+     * session shape: type "realtime", audio config nested under audio.input /
+     * audio.output, modalities as output_modalities, and object audio formats.
+     * @private
+     * @param {SessionResourceType} config
+     * @returns {{[key: string]: any}}
+     */
+    _toGASessionPayload(config) {
+        const toGAAudioFormat = (format) => {
+            if (format === 'g711_ulaw') return { type: 'audio/pcmu' };
+            if (format === 'g711_alaw') return { type: 'audio/pcma' };
+            return { type: 'audio/pcm', rate: 24000 };
+        };
+        const session = {
+            type: 'realtime',
+            // GA accepts ["audio"] or ["text"], not both; audio responses
+            // still include transcripts.
+            output_modalities: (config.modalities || ['audio']).includes('audio')
+                ? ['audio']
+                : ['text'],
+            instructions: config.instructions,
+            tools: config.tools,
+            tool_choice: config.tool_choice,
+            max_output_tokens: config.max_response_output_tokens,
+            audio: {
+                input: {
+                    format: toGAAudioFormat(config.input_audio_format),
+                    transcription: config.input_audio_transcription,
+                    turn_detection: config.turn_detection,
+                },
+                output: {
+                    format: toGAAudioFormat(config.output_audio_format),
+                    voice: config.voice,
+                },
+            },
+        };
+        return session;
     }
 
     /**
