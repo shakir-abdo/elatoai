@@ -33,9 +33,9 @@ export async function generateOpenAIReply(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: env.ELATO_OPENAI_MODEL || "gpt-4.1-mini",
+      // GPT-5 family models only accept the default temperature, so none is set
+      model: env.ELATO_OPENAI_MODEL || "gpt-5.4-mini",
       messages,
-      temperature: 0.7,
     }),
   });
 

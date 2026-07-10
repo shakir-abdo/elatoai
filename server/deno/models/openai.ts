@@ -98,8 +98,8 @@ export const connectToOpenAI = async ({
                     }),
                 );
             }
-        } else if (event.type === "response.audio_transcript.done") {
-            console.log("response.audio_transcript.done", event);
+        } else if (event.type === "response.output_audio_transcript.done") {
+            console.log("response.output_audio_transcript.done", event);
             await addConversation(
                 supabase,
                 "assistant",
@@ -153,7 +153,7 @@ export const connectToOpenAI = async ({
                             currentCallId = event.item.call_id;
                         }
                         break;
-                    case "response.audio.delta":
+                    case "response.output_audio.delta":
                         {
                             const { delta } = client.conversation.processEvent(
                                 event,
@@ -174,7 +174,7 @@ export const connectToOpenAI = async ({
                             }
                         }
                         break;
-                    case "conversation.item.created":
+                    case "conversation.item.added":
                         console.log("user said: ", event.item);
                         break;
                     case "conversation.item.input_audio_transcription.completed":
@@ -308,7 +308,7 @@ export const connectToOpenAI = async ({
     try {
         console.log(`Connecting to OpenAI...`);
         const sessionOptions = {
-            model: "gpt-realtime-1.5",
+            model: "gpt-realtime-2.1",
             turn_detection: {
                 type: "server_vad",
                 threshold: 0.4,
@@ -317,7 +317,7 @@ export const connectToOpenAI = async ({
             },
             voice: user.personality?.oai_voice ?? defaultOpenAIVoice,
             instructions: systemPrompt,
-            input_audio_transcription: { model: "whisper-1" },
+            input_audio_transcription: { model: "gpt-realtime-whisper" },
         };
         await client.connect(sessionOptions as any);
     } catch (e: unknown) {

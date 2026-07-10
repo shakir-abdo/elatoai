@@ -101,7 +101,7 @@ Typical local file:
 
 ```env
 OPENAI_API_KEY=...
-ELATO_OPENAI_MODEL=gpt-4.1-mini
+ELATO_OPENAI_MODEL=gpt-5.4-mini
 ELATO_OPENAI_SYSTEM_PROMPT=You are a friendly toy character.
 ELATO_OPENAI_FIRST_MESSAGE=Say hello first in one short sentence.
 ```
